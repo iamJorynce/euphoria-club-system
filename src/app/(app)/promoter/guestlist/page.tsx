@@ -15,12 +15,18 @@ export default async function PromoterGuestlistPage() {
       : Promise.resolve({ data: [] as any[] }),
   ]);
 
+  const guestlistIds = (guests ?? []).map((g) => g.id);
+  const { data: guestlistGuests } = guestlistIds.length
+    ? await supabase.from('guestlist_guests').select('*').in('guestlist_id', guestlistIds)
+    : { data: [] as any[] };
+
   return (
     <PromoterGuestlistClient
       promoterId={promoter?.id ?? ''}
       rooms={rooms ?? []}
       tables={tables ?? []}
       initialGuests={guests ?? []}
+      initialGuestlistGuests={guestlistGuests ?? []}
     />
   );
 }

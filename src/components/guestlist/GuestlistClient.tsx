@@ -16,10 +16,11 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 export function GuestlistClient({
-  initialGuestlists, rooms, tables, promoters,
-}: { initialGuestlists: any[]; rooms: any[]; tables: any[]; promoters: any[] }) {
+  initialGuestlists, initialGuestlistGuests, rooms, tables, promoters,
+}: { initialGuestlists: any[]; initialGuestlistGuests: any[]; rooms: any[]; tables: any[]; promoters: any[] }) {
   const supabase = createClient();
   const [rows, setRows] = useState(initialGuestlists);
+  const [namesByGroup, setNamesByGroup] = useState(initialGuestlistGuests);
   const [showForm, setShowForm] = useState(false);
   const [duplicates, setDuplicates] = useState<any[]>([]);
 
@@ -27,11 +28,12 @@ export function GuestlistClient({
     promoter_id: promoters[0]?.id ?? '',
     room_id: rooms[0]?.id ?? '',
     group_name: '',
-    pax: 2,
     eta: '',
     table_id: '',
     notes: '',
   });
+  // names for the reservation currently being built in the form above
+  const [names, setNames] = useState<string[]>(['']);
 
   useEffect(() => {
     const channel = supabase
@@ -42,6 +44,15 @@ export function GuestlistClient({
           if (payload.eventType === 'UPDATE')
             return prev.map((r) => (r.id === (payload.new as any).id ? (payload.new as any) : r));
           if (payload.eventType === 'DELETE') return prev.filter((r) => r.id !== (payload.old as any).id);
+          return prev;
+        });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'guestlist_guests' }, (payload) => {
+        setNamesByGroup((prev) => {
+          if (payload.eventType === 'INSERT') return [...prev, payload.new as any];
+          if (payload.eventType === 'UPDATE')
+            return prev.map((n) => (n.id === (payload.new as any).id ? (payload.new as any) : n));
+          if (payload.eventType === 'DELETE') return prev.filter((n) => n.id !== (payload.old as any).id);
           return prev;
         });
       })
@@ -58,21 +69,47 @@ export function GuestlistClient({
     setDuplicates(data ?? []);
   }
 
+  function updateName(i: number, value: string) {
+    setNames((prev) => prev.map((n, idx) => (idx === i ? value : n)));
+  }
+  function addNameField() {
+    setNames((prev) => [...prev, '']);
+  }
+  function removeNameField(i: number) {
+    setNames((prev) => (prev.length === 1 ? prev : prev.filter((_, idx) => idx !== i)));
+  }
+
   async function submitReservation() {
+    const cleanNames = names.map((n) => n.trim()).filter(Boolean);
     if (!form.group_name || !form.eta || !form.promoter_id) return toast.error('Fill in required fields');
-    const { error } = await supabase.from('guestlists').insert({
-      promoter_id: form.promoter_id,
-      room_id: form.room_id,
-      group_name: form.group_name,
-      pax: form.pax,
-      eta: new Date(form.eta).toISOString(),
-      table_id: form.table_id || null,
-      notes: form.notes || null,
-    });
+    if (cleanNames.length === 0) return toast.error('Add at least one guest name.');
+
+    const { data, error } = await supabase
+      .from('guestlists')
+      .insert({
+        promoter_id: form.promoter_id,
+        room_id: form.room_id,
+        group_name: form.group_name,
+        pax: cleanNames.length,
+        eta: new Date(form.eta).toISOString(),
+        table_id: form.table_id || null,
+        notes: form.notes || null,
+      })
+      .select()
+      .single();
     if (error) return toast.error(error.message);
+
+    const { data: insertedNames, error: namesErr } = await supabase
+      .from('guestlist_guests')
+      .insert(cleanNames.map((guest_name) => ({ guestlist_id: data.id, guest_name })))
+      .select();
+    if (namesErr) toast.error(`Reservation saved, but names failed: ${namesErr.message}`);
+    else setNamesByGroup((prev) => [...prev, ...(insertedNames ?? [])]);
+
     toast.success('Reservation added');
     setShowForm(false);
     setForm({ ...form, group_name: '', notes: '' });
+    setNames(['']);
   }
 
   async function updateStatus(id: string, status: string, reason?: string) {
@@ -116,10 +153,30 @@ export function GuestlistClient({
               <span>Possible duplicate: this name is already registered tonight by another promoter. Verify before saving.</span>
             </div>
           )}
-          <div className="grid grid-cols-3 gap-3">
-            <input type="number" min={1} placeholder="Pax" value={form.pax} onChange={(e) => setForm({ ...form, pax: Number(e.target.value) })} className="bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm" />
-            <input type="datetime-local" value={form.eta} onChange={(e) => setForm({ ...form, eta: e.target.value })} className="bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm col-span-2" />
+          <input type="datetime-local" value={form.eta} onChange={(e) => setForm({ ...form, eta: e.target.value })} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm" />
+
+          <div className="space-y-2">
+            <span className="block text-xs text-neutral-500">Guest names — one per pax, so reception can verify each at the door</span>
+            {names.map((n, i) => (
+              <div key={i} className="flex gap-1.5">
+                <input
+                  placeholder={`Guest ${i + 1} full name`}
+                  value={n}
+                  onChange={(e) => updateName(i, e.target.value)}
+                  className="flex-1 bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm"
+                />
+                {names.length > 1 && (
+                  <button onClick={() => removeNameField(i)} className="px-2 rounded-lg border border-neutral-800 text-neutral-500 hover:text-rose-400">
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button onClick={addNameField} className="flex items-center gap-1.5 text-xs text-fuchsia-400 font-medium">
+              <Plus size={14} /> Add another guest
+            </button>
           </div>
+
           <select value={form.table_id} onChange={(e) => setForm({ ...form, table_id: e.target.value })} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm">
             <option value="">No table preference</option>
             {tables.filter((t) => t.room_id === form.room_id).map((t) => <option key={t.id} value={t.id}>{t.table_number}</option>)}
@@ -129,34 +186,88 @@ export function GuestlistClient({
         </div>
       )}
 
-      <div className="px-4 space-y-2 mt-2">
+      <div className="px-4 space-y-4 mt-2">
         {rows.length === 0 && <div className="text-center text-neutral-600 text-sm py-10">No guestlist entries yet tonight.</div>}
-        {rows.map((g) => {
-          const room = rooms.find((r) => r.id === g.room_id);
-          const table = tables.find((t) => t.id === g.table_id);
-          const promoter = promoters.find((p) => p.id === g.promoter_id);
-          return (
-            <div key={g.id} className="rounded-lg border border-neutral-800 bg-neutral-900 p-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm truncate">{g.group_name}</span>
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${STATUS_STYLE[g.status]}`}>{g.status}</span>
-                </div>
-                <div className="text-xs text-neutral-500 mt-0.5">
-                  {promoter?.display_name ?? '—'} · {room?.name} · {g.pax} pax · ETA {new Date(g.eta).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  {table ? ` · Table ${table.table_number}` : ''}
-                </div>
+        {promoters
+          .map((promoter) => ({ promoter, promoterRows: rows.filter((g) => g.promoter_id === promoter.id) }))
+          .filter(({ promoterRows }) => promoterRows.length > 0)
+          .map(({ promoter, promoterRows }) => (
+            <div key={promoter.id} className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-3">
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <span className="text-sm font-semibold text-fuchsia-400">{promoter.display_name}</span>
+                <span className="text-[10px] text-neutral-500">{promoterRows.length} reservation{promoterRows.length > 1 ? 's' : ''} · {promoterRows.reduce((sum, g) => sum + g.pax, 0)} pax</span>
               </div>
-              {g.status === 'RESERVED' && (
-                <div className="flex gap-1.5 shrink-0">
-                  <button onClick={() => updateStatus(g.id, 'ARRIVED')} className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400"><Check size={16} /></button>
-                  <button onClick={() => updateStatus(g.id, 'NO_SHOW')} className="p-2 rounded-lg bg-rose-600/20 text-rose-400"><X size={16} /></button>
-                </div>
-              )}
+              <div className="space-y-2">
+                {promoterRows.map((g) => (
+                  <GuestlistRow key={g.id} g={g} rooms={rooms} tables={tables} namesByGroup={namesByGroup} onStatusChange={updateStatus} />
+                ))}
+              </div>
+            </div>
+          ))}
+        {/* reservations whose promoter is no longer active/found still show up so nothing silently disappears */}
+        {(() => {
+          const orphanRows = rows.filter((g) => !promoters.some((p) => p.id === g.promoter_id));
+          if (orphanRows.length === 0) return null;
+          return (
+            <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-3">
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <span className="text-sm font-semibold text-neutral-400">Unknown / inactive promoter</span>
+                <span className="text-[10px] text-neutral-500">{orphanRows.length} reservation{orphanRows.length > 1 ? 's' : ''}</span>
+              </div>
+              <div className="space-y-2">
+                {orphanRows.map((g) => (
+                  <GuestlistRow key={g.id} g={g} rooms={rooms} tables={tables} namesByGroup={namesByGroup} onStatusChange={updateStatus} />
+                ))}
+              </div>
             </div>
           );
-        })}
+        })()}
       </div>
+    </div>
+  );
+}
+
+function GuestlistRow({
+  g, rooms, tables, namesByGroup, onStatusChange,
+}: { g: any; rooms: any[]; tables: any[]; namesByGroup: any[]; onStatusChange: (id: string, status: string, reason?: string) => void }) {
+  const room = rooms.find((r) => r.id === g.room_id);
+  const table = tables.find((t) => t.id === g.table_id);
+  const groupNames = namesByGroup.filter((n) => n.guestlist_id === g.id);
+  const arrivedCount = groupNames.filter((n) => n.paid_entrance).length;
+  return (
+    <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm truncate">{g.group_name}</span>
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${STATUS_STYLE[g.status]}`}>{g.status}</span>
+          </div>
+          <div className="text-xs text-neutral-500 mt-0.5">
+            {room?.name} · {g.pax} pax · ETA {new Date(g.eta).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {table ? ` · Table ${table.table_number}` : ''}
+            {groupNames.length > 0 && ` · ${arrivedCount}/${groupNames.length} checked in`}
+          </div>
+        </div>
+        {g.status === 'RESERVED' && (
+          <div className="flex gap-1.5 shrink-0">
+            <button onClick={() => onStatusChange(g.id, 'NO_SHOW')} className="p-2 rounded-lg bg-rose-600/20 text-rose-400"><X size={16} /></button>
+          </div>
+        )}
+      </div>
+      {groupNames.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {groupNames.map((n) => (
+            <span
+              key={n.id}
+              className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border ${
+                n.paid_entrance ? 'border-emerald-900 bg-emerald-950/30 text-emerald-400' : 'border-neutral-800 text-neutral-400'
+              }`}
+            >
+              {n.paid_entrance && <Check size={11} />} {n.guest_name}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

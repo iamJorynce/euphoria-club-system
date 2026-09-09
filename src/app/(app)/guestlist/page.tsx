@@ -15,9 +15,15 @@ export default async function GuestlistPage() {
     supabase.from('promoters').select('*').eq('is_active', true),
   ]);
 
+  const guestlistIds = (guestlists ?? []).map((g) => g.id);
+  const { data: guestlistGuests } = guestlistIds.length
+    ? await supabase.from('guestlist_guests').select('*').in('guestlist_id', guestlistIds)
+    : { data: [] as any[] };
+
   return (
     <GuestlistClient
       initialGuestlists={guestlists ?? []}
+      initialGuestlistGuests={guestlistGuests ?? []}
       rooms={rooms ?? []}
       tables={tables ?? []}
       promoters={promoters ?? []}
