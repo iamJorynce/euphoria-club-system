@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* larger tap targets + no accidental zoom on iOS inputs */
+input, select, textarea {
+  font-size: 16px;
+}
+@media (min-width: 640px) {
+  input, select, textarea {
+    font-size: 14px;
+  }
+}
+
+/* Receipt printing: hide everything except the receipt when printing */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #receipt-print, #receipt-print * {
+    visibility: visible;
+  }
+  #receipt-print {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
