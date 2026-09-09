@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { PageHeader } from '@/components/ui/StatCard';
 import { Plus, Link2 } from 'lucide-react';
 
-const ROLES = ['ADMIN', 'MANAGER', 'CASHIER', 'INVENTORY_STAFF', 'PROMOTER'] as const;
+const ROLES = ['ADMIN', 'MANAGER', 'CASHIER', 'INVENTORY_STAFF', 'PROMOTER', 'RECEPTIONIST'] as const;
 
 export function UsersClient({ profiles, promoters }: { profiles: any[]; promoters: any[] }) {
   const supabase = createClient();

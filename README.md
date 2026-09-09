@@ -16,6 +16,7 @@ built with Next.js, TypeScript, Tailwind, and Supabase (Postgres + Auth + RLS
 | Auth, role-based routing, PWA manifest/service worker | ✅ complete |
 | Dashboard (live charts, low-stock alerts) | ✅ complete |
 | POS — persistent per-table tabs, cart, entrance charge, modifiers/add-ons, void items, cancel order, transfer table, merge bills, split bill, authorized promoter reassignment, checkout | ✅ complete |
+| Receptionist role — door screen: view tonight's arrivals, collect the entrance fee (no product cart, no shift), assign a table | ✅ complete |
 | Receipt printing (print-formatted, no commission shown to guest) | ✅ complete |
 | Shift open + close with cash variance | ✅ complete |
 | Tables (visual status board) | ✅ complete |
@@ -77,6 +78,9 @@ In the Supabase SQL Editor (or via the Supabase CLI), run the files in
 0003_rls.sql
 0004_auth_bootstrap.sql
 0005_pos_extensions.sql
+0006_business_date_fix.sql
+0007_receptionist_role.sql
+0008_receptionist_access.sql
 ```
 
 Or with the CLI:
@@ -145,6 +149,20 @@ App Router project.
   and `orders.guestlist_id` are set at order-creation time in the POS (from the
   arrived guestlist tied to the selected table), matching the spec's rule that
   attribution isn't lost if guests move rooms or tables.
+- **Receptionist's entrance charge is its own closed-out order, not the table's tab.**
+  `ReceptionEntranceClient` inserts an order with `status: 'PAID'` directly
+  (room + guestlist + entrance_total only, no `table_id`, no order_items) and
+  a matching payment, instead of opening a normal `OPEN` order the way POS
+  does. Two reasons: (1) skipping the `OPEN → PAID` transition means the
+  `credit_consumption_commission` trigger (which only fires `after update of
+  status`) never fires for it, so the entrance amount isn't double-credited
+  as a consumption commission on top of the entrance commission that
+  `guestlist_guests.paid_entrance` already triggers; (2) leaving `table_id`
+  null keeps this transaction separate from whatever tab the cashier opens
+  at the guest's table later, so the guest's eventual bar bill isn't paid
+  twice. Table assignment itself is purely `guestlists.table_id` +
+  `club_tables.status` — no financial record — so a receptionist can (re)seat
+  a group without touching billing at all.
 - **Commission rules are append-only/versioned.** `close_and_replace_commission_rule()`
   closes the currently-open rule (`effective_until = now`) and inserts a new
   one rather than mutating history, so past commission calculations are

@@ -3,7 +3,7 @@
 //   npx supabase gen types typescript --project-id <ref> > src/lib/types/database.ts
 // This hand-written version keeps the app compiling before that step is run.
 
-export type UserRole = 'ADMIN' | 'MANAGER' | 'CASHIER' | 'INVENTORY_STAFF' | 'PROMOTER';
+export type UserRole = 'ADMIN' | 'MANAGER' | 'CASHIER' | 'INVENTORY_STAFF' | 'PROMOTER' | 'RECEPTIONIST';
 export type RoomType = 'LIVE_BAND' | 'NIGHTCLUB';
 export type TableStatus = 'AVAILABLE' | 'RESERVED' | 'OCCUPIED' | 'BILLING' | 'CLEANING';
 export type GuestStatus = 'RESERVED' | 'ARRIVED' | 'NO_SHOW' | 'RELEASED' | 'WALK_IN';

@@ -32,7 +32,11 @@ export function AppNav({ role, fullName }: { role: UserRole; fullName: string })
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  const items = NAV_ITEMS.filter((i) => MODULE_ACCESS[i.module]?.includes(role));
+  const items = NAV_ITEMS
+    .filter((i) => MODULE_ACCESS[i.module]?.includes(role))
+    // Receptionists only ever see the entrance-collection screen under /pos, not
+    // the full cashier POS, so label the nav item for what it actually does.
+    .map((i) => (i.module === 'pos' && role === 'RECEPTIONIST' ? { ...i, label: 'Entrance' } : i));
 
   async function handleLogout() {
     const supabase = createClient();

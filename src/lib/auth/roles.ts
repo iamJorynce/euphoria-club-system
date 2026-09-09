@@ -6,9 +6,9 @@ import type { UserRole } from '@/lib/types/database';
 // enforcement boundary and must never be trusted to match this file blindly.
 export const MODULE_ACCESS: Record<string, UserRole[]> = {
   dashboard: ['ADMIN', 'MANAGER'],
-  pos: ['ADMIN', 'MANAGER', 'CASHIER'],
-  tables: ['ADMIN', 'MANAGER', 'CASHIER'],
-  guestlist: ['ADMIN', 'MANAGER', 'CASHIER'],
+  pos: ['ADMIN', 'MANAGER', 'CASHIER', 'RECEPTIONIST'],
+  tables: ['ADMIN', 'MANAGER', 'CASHIER', 'RECEPTIONIST'],
+  guestlist: ['ADMIN', 'MANAGER', 'CASHIER', 'RECEPTIONIST'],
   promoters: ['ADMIN', 'MANAGER'],
   commission: ['ADMIN', 'MANAGER'],
   inventory: ['ADMIN', 'MANAGER', 'INVENTORY_STAFF'],
@@ -30,5 +30,6 @@ export function homeRouteForRole(role: UserRole): string {
   if (role === 'PROMOTER') return '/promoter';
   if (role === 'INVENTORY_STAFF') return '/inventory';
   if (role === 'CASHIER') return '/pos';
+  if (role === 'RECEPTIONIST') return '/guestlist';
   return '/dashboard';
 }
