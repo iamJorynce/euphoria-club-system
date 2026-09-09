@@ -11,6 +11,7 @@ const ROLES = ['ADMIN', 'MANAGER', 'CASHIER', 'INVENTORY_STAFF', 'PROMOTER'] as 
 export function UsersClient({ profiles, promoters }: { profiles: any[]; promoters: any[] }) {
   const supabase = createClient();
   const [list, setList] = useState(profiles);
+  const [promoterList, setPromoterList] = useState(promoters);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'CASHIER' });
@@ -47,6 +48,7 @@ export function UsersClient({ profiles, promoters }: { profiles: any[]; promoter
     if (!promoterId) return;
     const { error } = await supabase.from('promoters').update({ profile_id: profileId }).eq('id', promoterId);
     if (error) return toast.error(error.message);
+    setPromoterList((prev) => prev.map((pr) => (pr.id === promoterId ? { ...pr, profile_id: profileId } : pr)));
     toast.success('Linked promoter profile to this login');
   }
 
@@ -79,7 +81,7 @@ export function UsersClient({ profiles, promoters }: { profiles: any[]; promoter
 
       <div className="px-4 space-y-2 mt-2">
         {list.map((p) => {
-          const linkedPromoter = promoters.find((pr) => pr.profile_id === p.id);
+          const linkedPromoter = promoterList.find((pr) => pr.profile_id === p.id);
           return (
             <div key={p.id} className="rounded-lg border border-neutral-800 bg-neutral-900 p-3">
               <div className="flex items-center justify-between gap-3">
@@ -101,7 +103,7 @@ export function UsersClient({ profiles, promoters }: { profiles: any[]; promoter
                   <Link2 size={13} className="text-neutral-600" />
                   <select onChange={(e) => linkPromoter(p.id, e.target.value)} defaultValue="" className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1 text-xs flex-1">
                     <option value="" disabled>Link to promoter record…</option>
-                    {promoters.filter((pr) => !pr.profile_id).map((pr) => <option key={pr.id} value={pr.id}>{pr.display_name}</option>)}
+                    {promoterList.filter((pr) => !pr.profile_id).map((pr) => <option key={pr.id} value={pr.id}>{pr.display_name}</option>)}
                   </select>
                 </div>
               )}

@@ -2,6 +2,7 @@ import { requireModule } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
+import { getBusinessDate } from '@/lib/business-date';
 
 function pesos(n: number) {
   return '₱' + n.toLocaleString('en-PH');
@@ -16,7 +17,7 @@ export default async function PromoterTonightPage() {
     return <div className="p-6 text-center text-neutral-500 text-sm">No promoter profile linked to your account yet. Contact an admin.</div>;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getBusinessDate();
   const [{ data: guests }, { data: rooms }, { data: commission }] = await Promise.all([
     supabase.from('guestlists').select('*').eq('promoter_id', promoter.id).eq('business_date', today),
     supabase.from('rooms').select('*'),

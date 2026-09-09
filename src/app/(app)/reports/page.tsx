@@ -1,6 +1,7 @@
 import { requireModule } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { ReportsClient } from '@/components/reports/ReportsClient';
+import { getBusinessDate } from '@/lib/business-date';
 
 export default async function ReportsPage({
   searchParams,
@@ -9,10 +10,10 @@ export default async function ReportsPage({
   const supabase = await createClient();
   const params = await searchParams;
 
-  const to = params.to ?? new Date().toISOString().slice(0, 10);
+  const to = params.to ?? getBusinessDate();
   const fromDefault = new Date();
   fromDefault.setDate(fromDefault.getDate() - 6);
-  const from = params.from ?? fromDefault.toISOString().slice(0, 10);
+  const from = params.from ?? getBusinessDate(fromDefault);
 
   const fromIso = new Date(from + 'T00:00:00').toISOString();
   const toIso = new Date(to + 'T23:59:59').toISOString();

@@ -27,24 +27,33 @@ end $$;
 
 -- ----------------------------------------------------------------------------
 -- helper: is user in a given role (or higher)
+-- SECURITY DEFINER is required here: these functions are called FROM inside
+-- RLS policies on `profiles` / `promoters`. If they run as the caller
+-- (default, RLS-subject), their internal SELECT re-triggers the very same
+-- RLS policy that called them (e.g. profiles_select_self calls is_staff(),
+-- which calls current_user_role(), which selects from profiles again,
+-- which re-evaluates profiles_select_self...) causing infinite recursion
+-- and a Postgres "stack depth limit exceeded" error. Running as SECURITY
+-- DEFINER (owned by a role that bypasses RLS) breaks that cycle. search_path
+-- is locked down to prevent search-path hijacking of a definer function.
 -- ----------------------------------------------------------------------------
 create or replace function current_user_role()
-returns user_role language sql stable as $$
+returns user_role language sql stable security definer set search_path = public as $$
   select role from profiles where id = auth.uid();
 $$;
 
 create or replace function is_admin_or_manager()
-returns boolean language sql stable as $$
+returns boolean language sql stable security definer set search_path = public as $$
   select coalesce(current_user_role() in ('ADMIN','MANAGER'), false);
 $$;
 
 create or replace function is_staff()
-returns boolean language sql stable as $$
+returns boolean language sql stable security definer set search_path = public as $$
   select coalesce(current_user_role() in ('ADMIN','MANAGER','CASHIER','INVENTORY_STAFF'), false);
 $$;
 
 create or replace function current_promoter_id()
-returns uuid language sql stable as $$
+returns uuid language sql stable security definer set search_path = public as $$
   select id from promoters where profile_id = auth.uid();
 $$;
 

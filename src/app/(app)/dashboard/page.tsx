@@ -2,6 +2,7 @@ import { requireModule } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { PageHeader, StatCard } from '@/components/ui/StatCard';
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts';
+import { getBusinessDate, getBusinessDateRange } from '@/lib/business-date';
 
 function pesos(n: number) {
   return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -11,10 +12,12 @@ export default async function DashboardPage() {
   await requireModule('dashboard');
   const supabase = await createClient();
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayIso = todayStart.toISOString();
-  const todayDate = todayStart.toISOString().slice(0, 10);
+  // "Today" here means the current business night (06:00 Asia/Manila to
+  // 05:59:59 the next day), not the UTC/server calendar day — see
+  // src/lib/business-date.ts for why.
+  const todayDate = getBusinessDate();
+  const { start: businessDayStart } = getBusinessDateRange();
+  const todayIso = businessDayStart.toISOString();
 
   const [
     { data: rooms },

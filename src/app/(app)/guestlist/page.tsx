@@ -1,11 +1,12 @@
 import { requireModule } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { GuestlistClient } from '@/components/guestlist/GuestlistClient';
+import { getBusinessDate } from '@/lib/business-date';
 
 export default async function GuestlistPage() {
   await requireModule('guestlist');
   const supabase = await createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getBusinessDate();
 
   const [{ data: guestlists }, { data: rooms }, { data: tables }, { data: promoters }] = await Promise.all([
     supabase.from('guestlists').select('*').eq('business_date', today).order('eta'),

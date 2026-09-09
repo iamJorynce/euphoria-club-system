@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 import { PageHeader } from '@/components/ui/StatCard';
 import { AlertTriangle, Check, X, Plus } from 'lucide-react';
+import { getBusinessDate } from '@/lib/business-date';
 
 const STATUS_STYLE: Record<string, string> = {
   RESERVED: 'bg-sky-950/40 text-sky-400 border-sky-900',
@@ -50,7 +51,7 @@ export function GuestlistClient({
 
   async function checkDuplicates(name: string) {
     if (!name.trim()) return setDuplicates([]);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getBusinessDate();
     const { data } = await supabase.rpc('check_duplicate_guest', {
       p_group_name: name, p_business_date: today, p_exclude_id: null,
     });

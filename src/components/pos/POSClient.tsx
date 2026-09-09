@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 import { Plus, Minus, Trash2, Receipt, DoorOpen, LogOut, ArrowLeftRight, Combine, Split, UserCog, Ban } from 'lucide-react';
 import { ReceiptView, type ReceiptData } from '@/components/pos/ReceiptView';
+import { getBusinessDate } from '@/lib/business-date';
 
 type ModifierOption = { id: string; name: string; extra_price: number };
 
@@ -161,7 +162,7 @@ export function POSClient({
       return;
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getBusinessDate();
     const { data: gl } = await supabase
       .from('guestlists')
       .select('*')

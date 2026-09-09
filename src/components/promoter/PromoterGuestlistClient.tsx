@@ -20,8 +20,14 @@ export function PromoterGuestlistClient({
   const [form, setForm] = useState({ room_id: rooms[0]?.id ?? '', group_name: '', pax: 2, eta: '', table_id: '', notes: '' });
   const [submitting, setSubmitting] = useState(false);
 
-  const now = new Date();
-  const isPastCutoff = now.getHours() >= 23;
+  // Uses Asia/Manila explicitly — the promoter's phone may be set to a
+  // different timezone, but the actual 11 PM cutoff is enforced server-side
+  // (apply_guestlist_cutoff trigger) against Asia/Manila regardless. This is
+  // just a heads-up matching that same clock, not the real enforcement.
+  const manilaHour = Number(
+    new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', hour12: false })
+  );
+  const isPastCutoff = manilaHour >= 23;
 
   async function submit() {
     if (!promoterId) return toast.error('No promoter profile linked to your account.');
